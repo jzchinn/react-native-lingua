@@ -276,8 +276,14 @@ jq -n '{email_address:["c@d.co"]}' | clerk api /users
 ```sh
 # Always --dry-run first across the whole set. `users list` paginates;
 # bump --limit (max 250) and walk pages with --offset until .hasMore is false.
-for id in $(clerk users list --json --limit 250 | jq -r '.data[] | .id'); do
-  clerk api /users/$id -X PATCH -d '{"public_metadata":{"migrated":true}}' --dry-run
+offset=0
+while :; do
+  page=$(clerk users list --json --limit 250 --offset "$offset")
+  printf '%s\n' "$page" | jq -r '.data[] | .id' | while read -r id; do
+    clerk api /users/"$id" -X PATCH -d '{"public_metadata":{"migrated":true}}' --dry-run
+  done
+  [ "$(printf '%s\n' "$page" | jq -r '.hasMore')" = "true" ] || break
+  offset=$((offset + 250))
 done
 # Re-run without --dry-run once the previews look right
 ```

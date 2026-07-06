@@ -79,6 +79,14 @@ export function VerificationModal({
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
           <View className="bg-white rounded-t-3xl px-6 pt-4 pb-10">
+            <Pressable
+              onPress={onClose}
+              className="absolute top-4 right-4 z-10"
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+            >
+              <Text className="body-md text-text-secondary">✕</Text>
+            </Pressable>
             <View className="items-center">
               <View className="w-10 h-1.5 rounded-full bg-border" />
             </View>

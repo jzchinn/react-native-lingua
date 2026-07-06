@@ -54,7 +54,8 @@
         "Handles organization.created event (new org created)",
         "Extracts organization ID, user ID, and role from webhook payloads",
         "Includes webhook signature verification",
-        "Shows database operations for both team_members and workspace tables"
+        "Shows database operations for both team_members and workspace tables",
+        "Uses svix-id idempotency key or equivalent duplicate-delivery deduplication so retries do not insert duplicate team_members/workspace rows"
       ]
     }
   ]

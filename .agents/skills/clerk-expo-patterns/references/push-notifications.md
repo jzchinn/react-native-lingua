@@ -1,6 +1,6 @@
 # Push Notifications with User Context
 
-Store the Expo push token against the Clerk user using `publicMetadata` or your own database.
+Store the Expo push token against the Clerk user using `unsafeMetadata` or your own database.
 
 ## Register Push Token After Sign-In
 

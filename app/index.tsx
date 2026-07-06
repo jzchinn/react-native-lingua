@@ -19,7 +19,9 @@ export default function Index() {
       <Text className="h1 text-center color-lingua-purple">triolingo</Text>
       <Pressable
         className="bg-lingua-purple rounded-full items-center justify-center py-4 px-8 mt-6"
-        onPress={() => signOut()}
+        onPress={() => {
+          signOut().catch((err) => console.error("Sign out failed:", err));
+        }}
       >
         <Text className="body-lg font-poppins-semibold text-white">
           Sign out

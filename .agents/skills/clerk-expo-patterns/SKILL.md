@@ -74,9 +74,10 @@ npx expo install expo-secure-store
 import { useAuth, useUser, useSignIn, useSignUp, useClerk } from '@clerk/expo'
 
 export function ProfileScreen() {
-  const { isSignedIn, userId, signOut } = useAuth()
+  const { isSignedIn, isLoaded, userId, signOut } = useAuth()
   const { user } = useUser()
-
+  // Wait for Clerk to finish restoring the session before redirecting.
+  if (!isLoaded) return null
   if (!isSignedIn) return <Redirect href="/sign-in" />
   return (
     <View>

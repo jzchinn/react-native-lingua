@@ -68,6 +68,8 @@ export default function SignUp() {
           <Pressable
             onPress={() => router.back()}
             className="mt-2 self-start py-2"
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
           >
             <Ionicons name="chevron-back" size={24} color="#0d132b" />
           </Pressable>

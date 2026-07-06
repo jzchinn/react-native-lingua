@@ -44,7 +44,7 @@ export default function ProfileScreen() {
 
 ## Recommended File Structure
 
-```
+```text
 app/
 ├── _layout.tsx           # Root layout with ClerkProvider
 ├── (public)/

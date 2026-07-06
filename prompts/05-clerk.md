@@ -210,7 +210,7 @@ This approach uses Clerk's [prebuilt native components](https://clerk.com/docs/r
 
    - Press `i` to open the iOS simulator.
    - Press `a` to open the Android emulator.
-   - Scan the QR code with Expo Go to run the app on a physical device.
+   - Scan the QR code from your development build / Expo Dev Client to run the app on a physical device.
 10. ## Create your first user
 
     Once the app opens on your device or simulator:

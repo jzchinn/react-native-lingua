@@ -15,30 +15,51 @@ type VerificationModalProps = {
   visible: boolean;
   email: string;
   onClose: () => void;
-  onVerified: () => void;
+  onSubmitCode: (code: string) => Promise<string | null>;
+  onResend: () => void;
 };
 
 export function VerificationModal({
   visible,
   email,
   onClose,
-  onVerified,
+  onSubmitCode,
+  onResend,
 }: VerificationModalProps) {
   const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (!visible) return;
     setCode("");
+    setError(null);
     const timeout = setTimeout(() => inputRef.current?.focus(), 300);
     return () => clearTimeout(timeout);
   }, [visible]);
 
   useEffect(() => {
-    if (code.length === CODE_LENGTH) {
-      onVerified();
-    }
-  }, [code, onVerified]);
+    if (code.length !== CODE_LENGTH) return;
+
+    let cancelled = false;
+    setIsVerifying(true);
+    setError(null);
+
+    onSubmitCode(code).then((submitError) => {
+      if (cancelled) return;
+      setIsVerifying(false);
+      if (submitError) {
+        setError(submitError);
+        setCode("");
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
 
   return (
     <Modal
@@ -79,15 +100,37 @@ export function VerificationModal({
                   <View
                     key={index}
                     className={`w-12 h-14 rounded-2xl border items-center justify-center ${
-                      index === code.length
-                        ? "border-lingua-purple"
-                        : "border-border"
+                      error
+                        ? "border-red-500"
+                        : index === code.length
+                          ? "border-lingua-purple"
+                          : "border-border"
                     }`}
                   >
                     <Text className="h3">{code[index] ?? ""}</Text>
                   </View>
                 ))}
               </View>
+            </Pressable>
+
+            {error && (
+              <Text className="body-sm text-red-500 text-center mt-4">
+                {error}
+              </Text>
+            )}
+
+            <Pressable
+              className="mt-6"
+              onPress={() => {
+                setError(null);
+                setCode("");
+                onResend();
+              }}
+              disabled={isVerifying}
+            >
+              <Text className="body-md font-poppins-semibold text-lingua-purple text-center">
+                Didn&apos;t get a code? Resend
+              </Text>
             </Pressable>
 
             <TextInput
@@ -98,6 +141,7 @@ export function VerificationModal({
               }
               keyboardType="number-pad"
               maxLength={CODE_LENGTH}
+              editable={!isVerifying}
               style={{ position: "absolute", opacity: 0, height: 0, width: 0 }}
             />
           </View>

@@ -1,5 +1,6 @@
+import { useSignIn } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { type Href, useRouter } from "expo-router";
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -18,13 +19,55 @@ import { VerificationModal } from "@/components/VerificationModal";
 
 export default function SignIn() {
   const router = useRouter();
+  const { signIn, errors, fetchStatus } = useSignIn();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showVerification, setShowVerification] = useState(false);
 
-  function handleVerified() {
-    setShowVerification(false);
-    router.replace("/");
+  async function finalizeAndGoHome() {
+    await signIn.finalize({
+      navigate: ({ decorateUrl }) => {
+        router.replace(decorateUrl("/") as Href);
+      },
+    });
+  }
+
+  async function handleSignIn() {
+    const { error } = await signIn.password({
+      identifier: email,
+      password,
+    });
+    if (error) return;
+
+    if (signIn.status === "complete") {
+      await finalizeAndGoHome();
+    } else if (signIn.status === "needs_second_factor") {
+      const { error: codeError } = await signIn.mfa.sendEmailCode();
+      if (!codeError) setShowVerification(true);
+    } else if (signIn.status === "needs_client_trust") {
+      const emailCodeFactor = signIn.supportedSecondFactors?.find(
+        (factor) => factor.strategy === "email_code",
+      );
+      if (emailCodeFactor) {
+        const { error: codeError } = await signIn.mfa.sendEmailCode();
+        if (!codeError) setShowVerification(true);
+      }
+    }
+  }
+
+  async function handleSubmitCode(code: string) {
+    const { error } = await signIn.mfa.verifyEmailCode({ code });
+    if (error) {
+      return errors.fields.code?.message ?? "Invalid code. Please try again.";
+    }
+
+    if (signIn.status === "complete") {
+      await finalizeAndGoHome();
+      setShowVerification(false);
+      return null;
+    }
+
+    return "Something went wrong. Please try again.";
   }
 
   return (
@@ -58,18 +101,21 @@ export default function SignIn() {
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
+              error={errors.fields.identifier?.message}
             />
             <AuthTextField
               label="Password"
               value={password}
               onChangeText={setPassword}
               isPassword
+              error={errors.fields.password?.message}
             />
           </View>
 
           <Pressable
             className="bg-lingua-purple rounded-full items-center justify-center py-4 mt-6"
-            onPress={() => setShowVerification(true)}
+            onPress={handleSignIn}
+            disabled={fetchStatus === "fetching"}
           >
             <Text className="body-lg font-poppins-semibold text-white">
               Sign In
@@ -104,7 +150,8 @@ export default function SignIn() {
         visible={showVerification}
         email={email}
         onClose={() => setShowVerification(false)}
-        onVerified={handleVerified}
+        onSubmitCode={handleSubmitCode}
+        onResend={() => signIn.mfa.sendEmailCode()}
       />
     </SafeAreaView>
   );

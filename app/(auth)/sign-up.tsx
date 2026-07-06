@@ -1,5 +1,6 @@
+import { useSignUp } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { type Href, useRouter } from "expo-router";
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -18,13 +19,39 @@ import { VerificationModal } from "@/components/VerificationModal";
 
 export default function SignUp() {
   const router = useRouter();
+  const { signUp, errors, fetchStatus } = useSignUp();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showVerification, setShowVerification] = useState(false);
 
-  function handleVerified() {
-    setShowVerification(false);
-    router.replace("/");
+  async function handleSignUp() {
+    const { error } = await signUp.password({
+      emailAddress: email,
+      password,
+    });
+    if (error) return;
+
+    const { error: codeError } = await signUp.verifications.sendEmailCode();
+    if (!codeError) setShowVerification(true);
+  }
+
+  async function handleSubmitCode(code: string) {
+    const { error } = await signUp.verifications.verifyEmailCode({ code });
+    if (error) {
+      return errors.fields.code?.message ?? "Invalid code. Please try again.";
+    }
+
+    if (signUp.status === "complete") {
+      await signUp.finalize({
+        navigate: ({ decorateUrl }) => {
+          router.replace(decorateUrl("/") as Href);
+        },
+      });
+      setShowVerification(false);
+      return null;
+    }
+
+    return "Something went wrong. Please try again.";
   }
 
   return (
@@ -58,18 +85,21 @@ export default function SignUp() {
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
+              error={errors.fields.emailAddress?.message}
             />
             <AuthTextField
               label="Password"
               value={password}
               onChangeText={setPassword}
               isPassword
+              error={errors.fields.password?.message}
             />
           </View>
 
           <Pressable
             className="bg-lingua-purple rounded-full items-center justify-center py-4 mt-6"
-            onPress={() => setShowVerification(true)}
+            onPress={handleSignUp}
+            disabled={fetchStatus === "fetching"}
           >
             <Text className="body-lg font-poppins-semibold text-white">
               Sign Up
@@ -100,11 +130,14 @@ export default function SignUp() {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      <View nativeID="clerk-captcha" />
+
       <VerificationModal
         visible={showVerification}
         email={email}
         onClose={() => setShowVerification(false)}
-        onVerified={handleVerified}
+        onSubmitCode={handleSubmitCode}
+        onResend={() => signUp.verifications.sendEmailCode()}
       />
     </SafeAreaView>
   );

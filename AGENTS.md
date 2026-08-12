@@ -106,6 +106,24 @@ Use this for routes and screens only.
 
 Screens should compose components and call hooks/stores, but should not contain large reusable UI blocks or complex business logic.
 
+### Route Protection
+
+Expo Router routes are independently reachable — a nested `_layout.tsx` does **not** inherit a parent screen's redirect/gating logic. `app/index.tsx` gates on auth (`useAuth()` from `@clerk/expo`) and language selection (`useLanguageStore`) before redirecting into `/(tabs)`, but that gate only runs when `/` is actually visited. Deep-linking, bookmarking, or navigating directly to a route inside a protected group — or a state change (sign out, clearing the selected language) while already inside one — bypasses it entirely unless that group's own `_layout.tsx` re-checks the same state.
+
+Every top-level protected route group must repeat this gate in its own `_layout.tsx`:
+
+```tsx
+const { isSignedIn, isLoaded } = useAuth();
+const selectedLanguageId = useLanguageStore((state) => state.selectedLanguageId);
+const hasHydrated = useLanguageStore((state) => state.hasHydrated);
+
+if (!isLoaded || !hasHydrated) return null;
+if (!isSignedIn) return <Redirect href="/onboarding" />;
+if (!selectedLanguageId) return <Redirect href="/language-selection" />;
+```
+
+See `app/(tabs)/_layout.tsx` for the current implementation. If a third protected route group needs this, extract it into a shared hook (e.g. `hooks/useRequireAuth.ts`) instead of copying it again — per the component-creation rule below, two instances is fine to duplicate, three is repetition worth refactoring.
+
 ### components/
 
 Create a component only when:
@@ -461,7 +479,7 @@ When an agent (not a human) needs to visually verify a change, e.g. by driving a
 
 - Never start the dev server with `-w`/`--web` for automated checks — that flag means "open in a web browser" and will pop a new tab in the developer's real Chrome. Run `npx expo start` (no `--web`); the web bundle is still servable via `?platform=web` without it.
 - Drive headless checks with Playwright's cached `chrome-headless-shell` binary (`headless: true`), not the full "Google Chrome for Testing" GUI build — the GUI build is a real Chrome process and macOS will surface permission/notification prompts for it even when launched "headlessly."
-- Known issue: the web platform currently fails to hydrate on the client (`Cannot use 'import.meta' outside a module`), caused by zustand's ESM middleware build being served as a classic (non-`type="module"`) script by Metro/Expo's dev server. SSR renders fine; client interactivity does not. This does not affect native (iOS/Android). A 200 response or successful SSR HTML is not proof the page works — check for `pageerror` events after load, since hydration can fail silently. If asked to fix this: try aligning `expo` to the version `npx expo install --check` recommends first (currently expects `~54.0.36`), or patch Metro's `resolver` conditions for the web platform, before going further.
+- Web hydration previously failed with `Cannot use 'import.meta' outside a module`, caused by zustand's ESM middleware build being served as a classic (non-`type="module"`) script by Metro/Expo's dev server. Fixed via a scoped `resolver.resolveRequest` override in `metro.config.js` that forces `zustand/middleware` to its CJS build on web only (see the comment there for why); `expo` is also kept aligned to the version `npx expo install --check` recommends, though that alone didn't fix this bug. A 200 response or successful SSR HTML is still not proof a page actually works — always check for `pageerror` events after load, since hydration can fail silently while SSR output looks fine. Watch for this same failure mode (an ESM-only dependency leaking `import.meta` into the bundle) recurring with future packages.
 
 ---
 

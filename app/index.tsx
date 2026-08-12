@@ -1,12 +1,14 @@
-import { useAuth, useClerk } from "@clerk/expo";
-import { Link, Redirect } from "expo-router";
-import { Pressable, Text, View } from "react-native";
+import { useAuth } from "@clerk/expo";
+import { Redirect } from "expo-router";
+
+import { useLanguageStore } from "@/store/languageStore";
 
 export default function Index() {
   const { isSignedIn, isLoaded } = useAuth();
-  const { signOut } = useClerk();
+  const selectedLanguageId = useLanguageStore((state) => state.selectedLanguageId);
+  const hasHydrated = useLanguageStore((state) => state.hasHydrated);
 
-  if (!isLoaded) {
+  if (!isLoaded || !hasHydrated) {
     return null;
   }
 
@@ -14,26 +16,9 @@ export default function Index() {
     return <Redirect href="/onboarding" />;
   }
 
-  return (
-    <View className="flex-1 justify-center items-center bg-background">
-      <Text className="h1 text-center color-lingua-purple">triolingo</Text>
-      <Link href="/language-selection" asChild>
-        <Pressable className="bg-lingua-purple rounded-full items-center justify-center py-4 px-8 mt-6">
-          <Text className="body-lg font-poppins-semibold text-white">
-            Choose a language
-          </Text>
-        </Pressable>
-      </Link>
-      <Pressable
-        className="bg-lingua-purple rounded-full items-center justify-center py-4 px-8 mt-6"
-        onPress={() => {
-          signOut().catch((err) => console.error("Sign out failed:", err));
-        }}
-      >
-        <Text className="body-lg font-poppins-semibold text-white">
-          Sign out
-        </Text>
-      </Pressable>
-    </View>
-  );
+  if (!selectedLanguageId) {
+    return <Redirect href="/language-selection" />;
+  }
+
+  return <Redirect href="/(tabs)/home" />;
 }

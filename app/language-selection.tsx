@@ -8,10 +8,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LanguageCard } from "@/components/LanguageCard";
 import { images } from "@/constants/images";
 import { languages } from "@/data/languages";
+import { useLanguageStore } from "@/store/languageStore";
 import type { LanguageId } from "@/types/learning";
 
 export default function LanguageSelection() {
   const router = useRouter();
+  const setSelectedLanguage = useLanguageStore((state) => state.setSelectedLanguage);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<LanguageId | null>(null);
 
@@ -25,7 +27,8 @@ export default function LanguageSelection() {
 
   function handleConfirm() {
     if (!selectedId) return;
-    router.back();
+    setSelectedLanguage(selectedId);
+    router.replace("/");
   }
 
   return (

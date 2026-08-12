@@ -455,6 +455,16 @@ Fix errors.
 
 ---
 
+## Verifying Changes Locally (Automated / Agent Checks)
+
+When an agent (not a human) needs to visually verify a change, e.g. by driving a headless browser against the web build:
+
+- Never start the dev server with `-w`/`--web` for automated checks — that flag means "open in a web browser" and will pop a new tab in the developer's real Chrome. Run `npx expo start` (no `--web`); the web bundle is still servable via `?platform=web` without it.
+- Drive headless checks with Playwright's cached `chrome-headless-shell` binary (`headless: true`), not the full "Google Chrome for Testing" GUI build — the GUI build is a real Chrome process and macOS will surface permission/notification prompts for it even when launched "headlessly."
+- Known issue: the web platform currently fails to hydrate on the client (`Cannot use 'import.meta' outside a module`), caused by zustand's ESM middleware build being served as a classic (non-`type="module"`) script by Metro/Expo's dev server. SSR renders fine; client interactivity does not. This does not affect native (iOS/Android). A 200 response or successful SSR HTML is not proof the page works — check for `pageerror` events after load, since hydration can fail silently. If asked to fix this: try aligning `expo` to the version `npx expo install --check` recommends first (currently expects `~54.0.36`), or patch Metro's `resolver` conditions for the web platform, before going further.
+
+---
+
 ## Communication Style
 
 Be concise.

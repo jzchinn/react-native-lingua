@@ -1,5 +1,7 @@
 import type { LanguageId, Lesson } from "@/types/learning";
 
+import { getUnitById } from "@/data/units";
+
 export const lessons: Lesson[] = [
   // ---------------------------------------------------------------------
   // Spanish · Unit 1 · Greetings & Basics
@@ -860,7 +862,11 @@ export function getLessonsForUnit(unitId: string): Lesson[] {
 export function getLessonsForLanguage(languageId: LanguageId): Lesson[] {
   return lessons
     .filter((lesson) => lesson.languageId === languageId)
-    .sort((a, b) => a.order - b.order);
+    .sort((a, b) => {
+      const unitOrderDiff =
+        (getUnitById(a.unitId)?.order ?? 0) - (getUnitById(b.unitId)?.order ?? 0);
+      return unitOrderDiff !== 0 ? unitOrderDiff : a.order - b.order;
+    });
 }
 
 export function getLessonById(id: string): Lesson | undefined {

@@ -25,7 +25,7 @@ export const languages: Language[] = [
     learners: "12.7M learners",
     popular: true,
   },
-  {
+/*   {
     id: "ko",
     name: "Korean",
     nativeName: "한국어",
@@ -48,7 +48,7 @@ export const languages: Language[] = [
     flagEmoji: "🇨🇳",
     learners: "7.4M learners",
     popular: true,
-  },
+  }, */
 ];
 
 export function getLanguageById(id: LanguageId): Language | undefined {

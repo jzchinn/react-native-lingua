@@ -25,6 +25,10 @@
   --color-surface: #f6f7fb;
   --color-background: #ffffff;
 
+  /* Card surface tints */
+  --color-peach: #fdecdd;
+  --color-mint: #eaf5e2;
+
   /* Font families - one token per Poppins weight (loaded via expo-font) */
   --font-poppins: "Poppins-Regular";
   --font-poppins-medium: "Poppins-Medium";

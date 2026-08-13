@@ -872,3 +872,15 @@ export function getLessonsForLanguage(languageId: LanguageId): Lesson[] {
 export function getLessonById(id: string): Lesson | undefined {
   return lessons.find((lesson) => lesson.id === id);
 }
+
+// The lesson to resume: the one already in progress, or the next locked
+// lesson if today's work hasn't started yet, falling back to the last
+// lesson once everything is complete.
+export function getCurrentLessonForLanguage(languageId: LanguageId): Lesson | undefined {
+  const languageLessons = getLessonsForLanguage(languageId);
+  return (
+    languageLessons.find((lesson) => lesson.status === "in_progress") ??
+    languageLessons.find((lesson) => lesson.status === "locked") ??
+    languageLessons[languageLessons.length - 1]
+  );
+}

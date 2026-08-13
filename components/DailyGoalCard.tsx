@@ -9,7 +9,7 @@ type DailyGoalCardProps = {
 };
 
 export function DailyGoalCard({ xp, goalXp }: DailyGoalCardProps) {
-  const progress = Math.min(xp / goalXp, 1);
+  const progress = xp === 0 && goalXp === 0 ? 0 : Math.min(Math.max(xp / goalXp, 0), 1);
 
   return (
     <View className="flex-row items-center justify-between bg-peach rounded-3xl pl-5 pr-2 py-4">

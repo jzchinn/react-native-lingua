@@ -48,21 +48,21 @@ export default function Home() {
   const planItems = currentLesson
     ? [
         {
-          id: "lesson",
+          id: `${currentLesson.id}-lesson`,
           icon: "book" as const,
           iconBackgroundClassName: "bg-lingua-purple",
           title: "Lesson",
           subtitle: currentLesson.title,
         },
         {
-          id: "conversation",
+          id: `${currentLesson.id}-conversation`,
           icon: "headset" as const,
           iconBackgroundClassName: "bg-lingua-purple",
           title: "AI Conversation",
           subtitle: `Practice ${currentLesson.aiTeacherPrompt.focusAreas[0]}`,
         },
         {
-          id: "words",
+          id: `${currentLesson.id}-words`,
           icon: "chatbubble-ellipses" as const,
           iconBackgroundClassName: "bg-error",
           title: "New words",

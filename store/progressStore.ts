@@ -24,7 +24,9 @@ export const useProgressStore = create<ProgressState>()(
       xp: 15,
       dailyGoalXp: 20,
       streak: 12,
-      completedPlanItemIds: ["lesson"],
+      // Matches the current Spanish demo lesson (es-u3-l3) so the design's
+      // default state — "Lesson" already checked off today — holds on first launch.
+      completedPlanItemIds: ["es-u3-l3-lesson"],
       hasHydrated: false,
       togglePlanItem: (id) =>
         set((state) => ({

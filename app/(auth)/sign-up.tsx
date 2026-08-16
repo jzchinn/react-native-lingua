@@ -1,6 +1,7 @@
 import { useSignUp } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { type Href, useRouter } from "expo-router";
+import { usePostHog } from "posthog-react-native";
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -20,11 +21,13 @@ import { VerificationModal } from "@/components/VerificationModal";
 export default function SignUp() {
   const router = useRouter();
   const { signUp, errors, fetchStatus } = useSignUp();
+  const posthog = usePostHog();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showVerification, setShowVerification] = useState(false);
 
   async function handleSignUp() {
+    posthog.capture("sign_up_submitted");
     const { error } = await signUp.password({
       emailAddress: email,
       password,
@@ -42,6 +45,13 @@ export default function SignUp() {
     }
 
     if (signUp.status === "complete") {
+      const userId = signUp.createdUserId;
+      if (userId) {
+        posthog.identify(userId, {
+          $set_once: { first_sign_up_date: new Date().toISOString() },
+        });
+      }
+      posthog.capture("sign_up_completed");
       await signUp.finalize({
         navigate: ({ decorateUrl }) => {
           router.replace(decorateUrl("/") as Href);

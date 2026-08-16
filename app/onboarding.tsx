@@ -55,7 +55,10 @@ export default function Onboarding() {
 
         <Pressable
           className="bg-lingua-purple rounded-full flex-row items-center justify-center py-4 mb-6"
-          onPress={() => router.push("/(auth)/sign-up")}
+          onPress={() => {
+            posthog.capture("onboarding_get_started");
+            router.push("/(auth)/sign-up");
+          }}
         >
           <Text className="body-lg font-poppins-semibold text-white mr-2">
             Get Started

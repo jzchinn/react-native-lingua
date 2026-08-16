@@ -1,6 +1,7 @@
 import { useSignIn } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { type Href, useRouter } from "expo-router";
+import { usePostHog } from "posthog-react-native";
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -20,11 +21,17 @@ import { VerificationModal } from "@/components/VerificationModal";
 export default function SignIn() {
   const router = useRouter();
   const { signIn, errors, fetchStatus } = useSignIn();
+  const posthog = usePostHog();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showVerification, setShowVerification] = useState(false);
 
   async function finalizeAndGoHome() {
+    const userId = signIn.createdSessionId ?? signIn.session?.userId;
+    if (userId) {
+      posthog.identify(userId);
+    }
+    posthog.capture("sign_in_completed");
     await signIn.finalize({
       navigate: ({ decorateUrl }) => {
         router.replace(decorateUrl("/") as Href);
@@ -33,6 +40,7 @@ export default function SignIn() {
   }
 
   async function handleSignIn() {
+    posthog.capture("sign_in_submitted");
     const { error } = await signIn.password({
       identifier: email,
       password,

@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Stack, useRouter } from "expo-router";
+import { usePostHog } from "posthog-react-native";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -13,6 +14,7 @@ import type { LanguageId } from "@/types/learning";
 
 export default function LanguageSelection() {
   const router = useRouter();
+  const posthog = usePostHog();
   const setSelectedLanguage = useLanguageStore((state) => state.setSelectedLanguage);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<LanguageId | null>(null);
@@ -27,6 +29,7 @@ export default function LanguageSelection() {
 
   function handleConfirm() {
     if (!selectedId) return;
+    posthog.capture("language_confirmed", { language_id: selectedId });
     setSelectedLanguage(selectedId);
     router.replace("/");
   }
@@ -70,7 +73,10 @@ export default function LanguageSelection() {
             key={language.id}
             language={language}
             selected={selectedId === language.id}
-            onPress={() => setSelectedId(language.id)}
+            onPress={() => {
+              posthog.capture("language_selected", { language_id: language.id, language_name: language.name });
+              setSelectedId(language.id);
+            }}
           />
         ))}
       </ScrollView>

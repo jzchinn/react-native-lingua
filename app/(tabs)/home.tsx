@@ -1,6 +1,7 @@
 import { useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { usePostHog } from "posthog-react-native";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -27,6 +28,7 @@ const GREETINGS: Record<LanguageId, string> = {
 export default function Home() {
   const router = useRouter();
   const { user } = useUser();
+  const posthog = usePostHog();
 
   const selectedLanguageId = useLanguageStore((state) => state.selectedLanguageId);
   const language = selectedLanguageId ? getLanguageById(selectedLanguageId) : undefined;
@@ -109,7 +111,14 @@ export default function Home() {
               languageName={language.name}
               level={currentUnit.level}
               unitOrder={currentUnit.order}
-              onPress={() => router.push("/learn")}
+              onPress={() => {
+                posthog.capture("continue_learning_tapped", {
+                  language_id: language.id,
+                  language_name: language.name,
+                  unit_order: currentUnit?.order,
+                });
+                router.push("/learn");
+              }}
             />
           </View>
         )}
@@ -131,7 +140,16 @@ export default function Home() {
               title={item.title}
               subtitle={item.subtitle}
               completed={completedPlanItemIds.includes(item.id)}
-              onPress={() => togglePlanItem(item.id)}
+              onPress={() => {
+                const isCompleting = !completedPlanItemIds.includes(item.id);
+                posthog.capture("plan_item_toggled", {
+                  item_id: item.id,
+                  item_title: item.title,
+                  completed: isCompleting,
+                  language_id: language.id,
+                });
+                togglePlanItem(item.id);
+              }}
             />
           ))}
         </View>
@@ -141,7 +159,10 @@ export default function Home() {
           <NextUpCard
             title="AI Video Call"
             subtitle="Practice speaking"
-            onPress={() => router.push("/ai-teacher")}
+            onPress={() => {
+              posthog.capture("ai_teacher_opened", { language_id: language.id });
+              router.push("/ai-teacher");
+            }}
           />
         </View>
       </ScrollView>

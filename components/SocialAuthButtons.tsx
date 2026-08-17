@@ -2,6 +2,7 @@ import { useSSO } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
+import { usePostHog } from "posthog-react-native";
 import { Alert, Pressable, Text, View } from "react-native";
 
 const SOCIAL_PROVIDERS = [
@@ -28,8 +29,11 @@ const SOCIAL_PROVIDERS = [
 export function SocialAuthButtons() {
   const { startSSOFlow } = useSSO();
   const router = useRouter();
+  const posthog = usePostHog();
 
   async function handlePress(strategy: (typeof SOCIAL_PROVIDERS)[number]["strategy"]) {
+    const provider = strategy.replace("oauth_", "");
+    posthog.capture("social_auth_started", { provider });
     try {
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy,
@@ -37,6 +41,9 @@ export function SocialAuthButtons() {
       });
 
       if (createdSessionId && setActive) {
+        posthog.capture("social_auth_completed", { provider });
+        // PostHogIdentityBridge identifies the user with their canonical
+        // Clerk ID once setActive lands and the session is actually active.
         await setActive({ session: createdSessionId });
         router.replace("/");
       }

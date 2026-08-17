@@ -32,12 +32,16 @@ export default function Profile() {
 
       <Pressable
         className="bg-lingua-purple rounded-full items-center justify-center py-4 px-8 mt-6"
-        onPress={() => {
-          posthog.capture("sign_out_completed", {
-            language_id: selectedLanguageId ?? undefined,
-          });
-          posthog.reset();
-          signOut().catch((err) => console.error("Sign out failed:", err));
+        onPress={async () => {
+          try {
+            await signOut();
+            posthog.capture("sign_out_completed", {
+              language_id: selectedLanguageId ?? undefined,
+            });
+            posthog.reset();
+          } catch (err) {
+            console.error("Sign out failed:", err);
+          }
         }}
       >
         <Text className="body-lg font-poppins-semibold text-white">Sign out</Text>

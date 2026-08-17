@@ -6,7 +6,7 @@ Everything is configured; leave the user a record of exactly what changed and wh
 
 Emit:
 
-```
+```text
 [STATUS] Writing the report
 ```
 
@@ -14,7 +14,7 @@ Emit:
 
 1. Write `./posthog-self-driving-report.md` (read any existing file first, then overwrite). Sections, in order:
 
-   - **Summary** — two or three sentences: what products and sources were turned on, and that findings will start appearing in the Self-driving inbox within ~30 minutes (include the inbox URL from the run prompt).
+   - **Summary** — two or three sentences: what products and sources were turned on, and that this configuration will be picked up automatically and findings may start appearing in the Self-driving inbox once eligible events, recordings, and source data are available (include the inbox URL from the run prompt). Don't promise a specific time window — the first scout tick and each source's first sync happen on their own schedules.
    - **AI data processing** — approved. (The wizard's AI opt-in gate enforces organization approval before the run starts, so by the time you reach the report it is always granted — just record it as approved.)
    - **GitHub** — connected (and whether it was already connected or connected during this run).
    - **Products enabled** — from step 3b: a short table of Session Replay / Error Tracking / Support, each as **enabled** / **already enabled** / **enabled but inert** (backend or mobile — the server flip is on, but it needs SDK code on this platform before it captures anything) / **not enabled** (a non-admin couldn't turn it on — the project-admin follow-up). The server flip happens regardless of platform, so a backend/mobile product is *enabled, just inert* — never "skipped". For a web app, note whether the `posthog.init` override check was clean or edited. This is the *product* toggle, distinct from the signal sources below. **Support row:** when Conversations is on, tickets only arrive once an inbound channel is connected — spell out that the user must connect a channel (email / inbox / Slack) in PostHog, and add a matching follow-up.

@@ -28,7 +28,7 @@ The connect page renders the right credential form for that kind on its own.
 
 ## Do
 
-1. **Get the connect link.** Call `data-warehouse-source-connect-link` with `{ "source_type": "<Type>" }`. It returns a `connect_url` (a PostHog page in the user's project) — relay that exact URL, don't build your own.
+1. **Get the connect link.** Call `data-warehouse-source-connect-link` with `{ "source_type": "<Type>" }`. It returns a `connect_url` (a PostHog page in the user's project) — relay that exact URL, don't build your own. Note the current time before sending it — you'll need it in step 3 to confirm the credential you pick up actually came from this attempt.
 
 2. **Send the link.** Ask **once**, decline-first — the user enters their credentials in the browser, never here:
 
@@ -46,10 +46,10 @@ The connect page renders the right credential form for that kind on its own.
 
    - **skip** → record "picked but not connected" and return to step 5 (enable the dormant responder + follow-up — harmless, since it only emits once a warehouse source syncs).
 
-3. **On done, fetch the stored credential once.** Call `data-warehouse-stored-credentials-list` with `{ "source_type": "<Type>" }` and take the **newest** `credential_id`. Stored credentials are single-use and expire after 24 hours, so read it right after the user confirms.
+3. **On done, fetch the stored credential once.** Call `data-warehouse-stored-credentials-list` with `{ "source_type": "<Type>" }` and take the newest `credential_id` **whose creation time is after the timestamp you noted in step 1** — that's what ties it to this attempt rather than a stale credential a prior run (or a concurrent one) left behind. Stored credentials are single-use and expire after 24 hours, so read it right after the user confirms.
 
-   - **Credential present** → create the source (below).
-   - **None present** (the user didn't actually store anything, or it expired) → **don't re-ask or wait** — record "picked but not connected" and return to step 5 (the dormant responder + follow-up cover it; the user can finish the connect page later). This run never nudges.
+   - **A credential newer than your step-1 timestamp is present** → create the source (below).
+   - **None present, or the newest one predates your step-1 timestamp** (the user didn't actually store anything, it expired, or what's there belongs to an earlier attempt) → **don't re-ask or wait** — record "picked but not connected" and return to step 5 (the dormant responder + follow-up cover it; the user can finish the connect page later). This run never nudges.
 
 4. **Create the source** with `external-data-sources-create`, passing the stored credential by reference and syncing **only** the one actionable table — never inline secrets, never every table:
 

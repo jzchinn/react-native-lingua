@@ -27,10 +27,10 @@ export default function SignIn() {
   const [showVerification, setShowVerification] = useState(false);
 
   async function finalizeAndGoHome() {
-    const userId = signIn.createdSessionId ?? signIn.session?.userId;
-    if (userId) {
-      posthog.identify(userId);
-    }
+    // PostHogIdentityBridge (mounted below ClerkProvider) identifies the
+    // user with their canonical Clerk ID once the session actually becomes
+    // active — identifying here from in-flight sign-in state would be
+    // premature.
     posthog.capture("sign_in_completed");
     await signIn.finalize({
       navigate: ({ decorateUrl }) => {

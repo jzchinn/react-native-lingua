@@ -31,7 +31,7 @@ Do not skip server-side events - they capture actions that cannot be tracked cli
 
 Create a new file with a JSON array at the root of the project: .posthog-events.json. It should include one object for each event we want to add with these exact field names: `event_name` (the event name), `event_description` (one sentence), and `file` (the file path the event goes in). The wizard reads this file to surface the plan in the UI. If events already exist, don't duplicate them; supplement them.
 
-Track actions only, not pageviews. These can be captured automatically. Exceptions can be made for "viewed"-type events that correspond to the top of a conversion funnel.
+Track actions only, not pageviews. These can be captured automatically. Exceptions can be made for "viewed"-type events that correspond to the top of a conversion funnel — a manual `posthog.capture('*_viewed', …)` call is fine for this. Autocaptured `$screen` events (from `posthog.screen()` navigation tracking) are a separate mechanism and don't count as one of these exceptions; don't list them in `.posthog-events.json` or treat them as funnel-eligible custom events.
 
 As you review files, make an internal note of opportunities to identify users and catch errors. We'll need them for the next step.
 

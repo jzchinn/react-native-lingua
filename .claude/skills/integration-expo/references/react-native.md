@@ -19,7 +19,7 @@ Terminal
 PostHog AI
 
 ```bash
-npx expo install posthog-react-native expo-file-system expo-application expo-device expo-localization
+npx expo install posthog-react-native expo-file-system expo-application expo-device expo-localization react-native-svg
 ```
 
 #### React Native apps
@@ -365,7 +365,10 @@ PostHog AI
 
 ```jsx
 const posthog = usePostHog() // use the usePostHog hook if using the PostHogProvider or your own custom posthog instance
-posthog.screen(pathname, params)
+// Don't forward `params` as-is — route params can carry sensitive values
+// (e.g. an OAuth callback's `code`/`state`). Pass an explicit allowlist of
+// non-sensitive params instead, or omit properties entirely.
+posthog.screen(pathname)
 ```
 
 #### Manually capturing screen capture events
@@ -689,7 +692,7 @@ posthog.register({
 
 The call above ensures that every event sent by the user will include `"icecream pref": "vanilla"` and `"team_id": 22`. This way, if you filtered events by property using `icecream_pref = vanilla`, it would display all events captured on that user after the `posthog.register` call, since they all include the specified Super Property.
 
-This does **not** set the user's properties. This only sets the properties for their events. To store person properties, see the [setting person properties section](#setting-user-properties).
+This does **not** set the user's properties. This only sets the properties for their events. To store person properties, see the [setting person properties section](#setting-person-properties).
 
 ### Removing stored super properties
 
@@ -926,7 +929,7 @@ PostHog AI
 await posthog.reloadFeatureFlagsAsync()
 ```
 
-Or clear cached values for inactive users:
+Or refresh cached flag values for inactive users without changing their identity:
 
 React Native
 
@@ -934,9 +937,11 @@ PostHog AI
 
 ```jsx
 if (lastActiveDate < migrationDate) {
-  posthog.reset() // Clears all cached data
+  posthog.reloadFeatureFlagsAsync() // Refreshes feature flags from the server
 }
 ```
+
+Reserve `posthog.reset()` for an actual identity change (e.g. logout) — it also clears the user's distinct ID and super properties, which a stale-flags fix shouldn't do.
 
 ### Request timeout
 
@@ -1338,7 +1343,7 @@ await PostHog.setup('<ph_project_token>', {
 PostHog.capture("foo")
 // V2 Setup difference
 import PostHog from 'posthog-react-native'
-const posthog = await Posthog.initAsync('<ph_project_token>', {
+const posthog = await PostHog.initAsync('<ph_project_token>', {
     // usually 'https://us.i.posthog.com' or 'https://eu.i.posthog.com'
     host: 'https://us.i.posthog.com',
     // Add any other options here.

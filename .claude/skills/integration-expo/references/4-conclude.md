@@ -58,7 +58,7 @@ A trends insight with a breakdown (breakdowns go in `breakdownFilter.breakdowns`
 }
 ```
 
-A conversion funnel (the window fields are camelCase and live INSIDE `funnelsFilter` — not at the top level of `FunnelsQuery`, and not snake_case):
+A conversion funnel (the window fields are camelCase and live INSIDE `funnelsFilter` — not at the top level of `FunnelsQuery`, and not snake_case). Build the `series` from the actual events recorded in `.posthog-events.json` for this project's funnel — the "viewed"-type event at the top (per 1-begin.md) through to the completion event — not the placeholder names below, which only illustrate the shape:
 
 ```json
 {
@@ -69,8 +69,8 @@ A conversion funnel (the window fields are camelCase and live INSIDE `funnelsFil
     "source": {
       "kind": "FunnelsQuery",
       "series": [
-        { "kind": "EventsNode", "event": "page_viewed" },
-        { "kind": "EventsNode", "event": "user_signed_up" }
+        { "kind": "EventsNode", "event": "<this project's top-of-funnel viewed event>" },
+        { "kind": "EventsNode", "event": "<this project's completion event>" }
       ],
       "dateRange": { "date_from": "-30d" },
       "funnelsFilter": {

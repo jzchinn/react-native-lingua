@@ -8,7 +8,7 @@ Self-driving is in **open beta** — available to every team — so there is no 
 
 Emit:
 
-```
+```text
 [STATUS] Checking Self-driving access
 ```
 

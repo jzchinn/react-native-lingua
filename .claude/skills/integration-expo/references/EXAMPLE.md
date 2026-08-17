@@ -109,7 +109,7 @@ npx expo run:android
 
 ### Configuration
 
-PostHog is configured in `src/config/posthog.ts` using environment variables from `app.json`:
+PostHog is configured in `src/config/posthog.ts` using configuration from `app.config.js`:
 
 ```typescript
 import Constants from 'expo-constants'
@@ -303,7 +303,7 @@ export default {
 ## app/_layout.tsx
 
 ```tsx
-import { Stack, usePathname, useGlobalSearchParams } from 'expo-router'
+import { Stack, usePathname } from 'expo-router'
 import { useEffect, useRef } from 'react'
 import { StatusBar } from 'expo-status-bar'
 import { PostHogProvider } from 'posthog-react-native'
@@ -316,7 +316,6 @@ import { colors } from '../src/styles/theme'
 
 export default function RootLayout() {
   const pathname = usePathname()
-  const params = useGlobalSearchParams()
   const previousPathname = useRef<string | undefined>(undefined)
 
   // Manual screen tracking for Expo Router
@@ -324,14 +323,16 @@ export default function RootLayout() {
   // React Compiler will auto-optimize this effect
   useEffect(() => {
     if (previousPathname.current !== pathname) {
+      // Route params aren't forwarded here — spreading arbitrary params
+      // risks sending OAuth callback values (`code`, `state`) or other
+      // sensitive data to analytics. If a param is genuinely useful, add
+      // it explicitly by name (an allowlist), never as a blanket spread.
       posthog.screen(pathname, {
         previous_screen: previousPathname.current ?? null,
-        // Include route params for analytics (filter sensitive data if needed)
-        ...params,
       })
       previousPathname.current = pathname
     }
-  }, [pathname, params])
+  }, [pathname])
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -406,10 +407,10 @@ export default function BurritoScreen() {
   }
 
   const handleConsideration = async () => {
-    const newCount = user.burritoConsiderations + 1
-
-    // Update state first for immediate feedback
-    await incrementBurritoConsiderations()
+    // incrementBurritoConsiderations serializes concurrent taps and
+    // returns the actual committed count — don't derive it from `user`
+    // here, since that can be stale if another tap is still in flight.
+    const newCount = await incrementBurritoConsiderations()
     setHasConsidered(true)
 
     // Hide success message after 2 seconds
@@ -1009,10 +1010,13 @@ if (__DEV__) {
   })
 }
 
-if (!isPostHogConfigured) {
-  console.warn(
-    'PostHog project token not configured. Analytics will be disabled. ' +
-      'Set POSTHOG_PROJECT_TOKEN in your .env file to enable analytics.'
+// Dev/debug builds fail loudly so a missing token is never silently missed.
+// Production stays a no-op — see `disabled` on the client below.
+if (__DEV__ && !isPostHogConfigured) {
+  throw new Error(
+    'POSTHOG_PROJECT_TOKEN variable required by PostHog is missing or un-configured, ' +
+      'this causes events to be silently missed. ' +
+      'This error stops appearing once POSTHOG_PROJECT_TOKEN is configured.'
   )
 }
 
@@ -1021,14 +1025,14 @@ if (!isPostHogConfigured) {
  *
  * Configuration loaded from app.config.js extras via expo-constants.
  * Required peer dependencies: expo-file-system, expo-application,
- * expo-device, expo-localization
+ * expo-device, expo-localization, react-native-svg
  *
  * For React Native Web targets, use @react-native-async-storage/async-storage
  * instead of expo-file-system (Web and macOS targets not supported by expo-file-system).
  *
  * @see https://posthog.com/docs/libraries/react-native
  */
-export const posthog = new PostHog(projectToken || 'placeholder_key', {
+export const posthog = new PostHog(projectToken ?? '', {
   // PostHog API host
   host,
 
@@ -1069,7 +1073,7 @@ export const isPostHogEnabled = isPostHogConfigured
 ## src/contexts/AuthContext.tsx
 
 ```tsx
-import React, { createContext, useState, useEffect, use } from 'react'
+import React, { createContext, useState, useEffect, useRef, use } from 'react'
 import type { ReactNode } from 'react'
 import { usePostHog } from 'posthog-react-native'
 import { storage } from '../services/storage'
@@ -1080,7 +1084,7 @@ interface AuthContextType {
   isLoading: boolean
   login: (username: string, password: string) => Promise<boolean>
   logout: () => Promise<void>
-  incrementBurritoConsiderations: () => Promise<void>
+  incrementBurritoConsiderations: () => Promise<number>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -1093,6 +1097,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const posthog = usePostHog()
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  // Serializes concurrent increments so two rapid taps can't both read the
+  // same stale count and silently drop an update.
+  const considerationQueue = useRef(Promise.resolve())
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -1159,15 +1166,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null)
   }
 
-  const incrementBurritoConsiderations = async () => {
-    if (user) {
+  const incrementBurritoConsiderations = async (): Promise<number> => {
+    if (!user) return 0
+
+    // Chain onto the queue rather than reading `user` directly, so a
+    // second tap that fires before the first completes waits for it
+    // instead of racing it.
+    const task = considerationQueue.current.then(async () => {
+      const current = (await storage.getUser(user.username)) ?? user
       const updatedUser: User = {
-        ...user,
-        burritoConsiderations: user.burritoConsiderations + 1,
+        ...current,
+        burritoConsiderations: current.burritoConsiderations + 1,
       }
-      setUser(updatedUser)
       await storage.saveUser(updatedUser)
-    }
+      setUser(updatedUser)
+      return updatedUser.burritoConsiderations
+    })
+
+    considerationQueue.current = task.then(
+      () => undefined,
+      () => undefined,
+    )
+    return task
   }
 
   return (

@@ -8,7 +8,7 @@ Build a picture of what this product uses so every later decision (which sources
 
 Emit:
 
-```
+```text
 [STATUS] Reading project context
 ```
 

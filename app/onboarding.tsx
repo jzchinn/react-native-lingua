@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { Stack, useRouter } from "expo-router";
+import { usePostHog } from "posthog-react-native";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -8,6 +9,7 @@ import { images } from "@/constants/images";
 
 export default function Onboarding() {
   const router = useRouter();
+  const posthog = usePostHog();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }}>

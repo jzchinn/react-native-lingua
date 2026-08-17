@@ -13,9 +13,11 @@ For each event, add useful properties, and use your access to the PostHog source
 
 Remember that you can find the source code for any dependency in the node_modules directory. This may be necessary to properly populate property names. There are also example project code files available via the PostHog MCP; use these for reference.
 
-Where possible, add calls for PostHog's identify() function on the client side upon events like logins and signups. Use the contents of login and signup forms to identify users on submit. If there is server-side code, pass the client-side session and distinct ID to the server-side code to identify the user. On the server side, make sure events have a matching distinct ID where relevant. 
+Where possible, add calls for PostHog's identify() function on the client side once login or signup has actually succeeded — never from in-flight form state, and never before the auth provider confirms the session is active. Call `identify()` with the canonical, non-secret user ID from your auth provider (e.g. the user's database ID or Clerk/Auth0/Supabase user ID) — never a username, email typed into a form, password, token, or other credential. PostHog properties must never carry a password, session token, API key, or other credential; only pass non-secret profile data like email or name as `$set` properties.
 
-It's essential to do this in both client code and server code, so that user behavior from both domains is easy to correlate.
+If there is server-side code, pass the client-side distinct ID to the server-side code to identify the user, and only add server-side identify/correlation code when this project actually has server-side code to put it in — skip this for a client-only app rather than inventing a server-side call site. On the server side, make sure events have a matching distinct ID where relevant.
+
+When both client and server code exist, do this in both, so user behavior from both domains is easy to correlate.
 
 You should also add PostHog exception capture error tracking to these files where relevant.
 

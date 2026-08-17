@@ -7,7 +7,9 @@ Check the project for errors. Read the package.json file for any type checking o
 
 Ensure that any components created were actually used.
 
-Once all other tasks are complete, run any linter or prettier-like scripts found in the package.json, but ONLY on the files you have edited or created during this session. Do not run formatting or linting across the entire project's codebase.
+Before considering this phase complete, run the repository's `npm run lint` script and its type-check script (`npm run typecheck` if defined in package.json, otherwise `npx tsc --noEmit`) and fix every error they report. This is required, not optional — do not finish this phase with outstanding lint or type errors in code you touched.
+
+Additionally, once all other tasks are complete, run any prettier-like formatting script found in package.json, but ONLY on the files you have edited or created during this session. Do not run formatting across the entire project's codebase. This formatting pass is an extra step on top of the required lint/typecheck run above, not a substitute for it.
 
 ## Status
 

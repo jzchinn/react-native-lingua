@@ -1,12 +1,13 @@
 import { ClerkProvider } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
 import { useFonts } from "expo-font";
-import { Stack, usePathname, useGlobalSearchParams } from "expo-router";
+import { Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useRef } from "react";
 import { PostHogProvider } from "posthog-react-native";
 
+import { PostHogIdentityBridge } from "@/components/PostHogIdentityBridge";
 import { posthog } from "../src/config/posthog";
 
 import "../global.css";
@@ -22,19 +23,19 @@ if (!publishableKey) {
 
 export default function RootLayout() {
   const pathname = usePathname();
-  const params = useGlobalSearchParams();
   const previousPathname = useRef<string | undefined>(undefined);
 
-  // Manual screen tracking for Expo Router
+  // Manual screen tracking for Expo Router.
+  // Route params aren't forwarded here — they can carry OAuth callback
+  // values like `code`/`state` that must never reach analytics.
   useEffect(() => {
     if (previousPathname.current !== pathname) {
       posthog.screen(pathname, {
         previous_screen: previousPathname.current ?? null,
-        ...params,
       });
       previousPathname.current = pathname;
     }
-  }, [pathname, params]);
+  }, [pathname]);
 
   const [fontsLoaded] = useFonts({
     "Poppins-Regular": require("../assets/fonts/Poppins-Regular.ttf"),
@@ -62,9 +63,11 @@ export default function RootLayout() {
         }}
       >
       <ClerkProvider publishableKey={publishableKey!} tokenCache={tokenCache}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        </Stack>
+        <PostHogIdentityBridge>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          </Stack>
+        </PostHogIdentityBridge>
       </ClerkProvider>
     </PostHogProvider>
   );

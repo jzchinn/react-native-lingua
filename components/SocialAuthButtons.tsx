@@ -42,9 +42,8 @@ export function SocialAuthButtons() {
 
       if (createdSessionId && setActive) {
         posthog.capture("social_auth_completed", { provider });
-        if (createdSessionId) {
-          posthog.identify(createdSessionId);
-        }
+        // PostHogIdentityBridge identifies the user with their canonical
+        // Clerk ID once setActive lands and the session is actually active.
         await setActive({ session: createdSessionId });
         router.replace("/");
       }

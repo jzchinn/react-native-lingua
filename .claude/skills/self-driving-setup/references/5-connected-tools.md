@@ -108,16 +108,16 @@ Load `wizard_ask` via `ToolSearch select:mcp__wizard-tools__wizard_ask`. Reach `
     { label: "Appfigures (per review)", value: "appfigures" },
     { label: "AppFollow (per review)", value: "appfollow" },
     { label: "Judge.me (per review)", value: "judgeme_reviews" },
-    { label: "Google Search Console", value: "google_search_console" }
+    { label: "Google Search Console (per search opportunity)", value: "google_search_console" }
   ]
 }
 ```
 
-**Google Search Console carries no unit on purpose.** It is the one tool in this list with no emitter registered in `registry.py`, so nothing it syncs becomes a signal — and therefore nothing it syncs bills. Don't invent a unit for it; if an emitter lands, give it the bracket its registry line names.
+**Google Search Console's emitter reads the `search_analytics_by_query_page` warehouse table** and emits `search_opportunity` records — that's the unit in its bracket above, and it's why the write recipe below enables `google_search_console` / `search_opportunity` for it like any other source. Keep the label and the source-row mapping aligned if either changes.
 
 Two things narrow what actually bills, so don't imply every record becomes a PR: each emitter's `where_clause` drops records the tool already closed (Linear, for instance, skips `completed` and `canceled` states — but **not** backlog or todo, which is why future-work tickets are in scope), and most emitters then run an `actionability_prompt` before emitting. The user-facing claim stays "each record it judges fixable" — "judges" is carrying that nuance, so keep the word.
 
-2. Call `external-data-sources-list` once (step 2's project profile also lists warehouse sources when it exists). For each picked tool whose source already exists, match its warehouse `source_type`: `Github` / `Linear` / `Jira` / `GitLab` / `Gitea` / `Shortcut` / `Sentry` / `Rollbar` / `Bugsnag` / `Honeybadger` / `Raygun` / `Zendesk` / `Freshdesk` / `Freshservice` / `Front` / `Gorgias` / `Kustomer` / `Dixa` / `Plain` / `PgAnalyze` / `Snyk` / `Sonarqube` / `Semgrep` / `Rapid7Insightvm` / `Featurebase` / `Frill` / `Aha` / `Uservoice` / `Productboard` / `Canny` / `Asknicely` / `Retently` / `Appfigures` / `Appfollow` / `JudgeMeReviews` / `GoogleSearchConsole`. Record "already connected" — no connector flow needed, just enable its responder row (step 4 below).
+2. Call `external-data-sources-list` once (step 2's project profile also lists warehouse sources when it exists). For each picked tool whose source already exists, match its warehouse `source_type`: `Github` / `Linear` / `Jira` / `GitLab` / `Gitea` / `Shortcut` / `Sentry` / `Rollbar` / `Bugsnag` / `Honeybadger` / `Raygun` / `Zendesk` / `Freshdesk` / `Freshservice` / `Front` / `Gorgias` / `Kustomer` / `Dixa` / `Plain` / `PgAnalyze` / `Snyk` / `Sonarqube` / `Semgrep` / `Rapid7Insightvm` / `Featurebase` / `Frill` / `Aha` / `Uservoice` / `Productboard` / `Canny` / `Asknicely` / `Retently` / `Appfigures` / `Appfollow` / `JudgeMeReviews` / `GoogleSearchConsole`. **Matching `source_type` alone is not enough** — a row of the right type can point at a different repo, account, or property than the one this run is setting up. Where the listing exposes an identity field (repo full name, account/org, site or property URL), confirm it corresponds to this project before treating the row as "already connected"; when the identity can't be confirmed from the listing, say so in the report rather than asserting a match. Only after that identity check passes, record "already connected" — no connector flow needed, just enable its responder row (step 4 below). A row that fails the identity check is treated as absent (dispatch its connector in step 3 below).
 
 3. Dispatch each picked tool that's still missing:
 

@@ -69,7 +69,7 @@ The **create / update / size mechanics** — scanner-type and config shapes, the
    - Prefer `$current_url` `icontains` filters on the real path segments this product uses. Read them out of the code (router files, page/route directories); never guess at `/checkout` if this app calls it `/booking`.
    - **No identifiable completion flow?** Don't invent one — a vague query buys noise at real cost. Fall back to the handful of highest-traffic paths from step 2's evidence, and say in the report that you couldn't identify a completion flow.
    - **Not a web app** (backend-only, or mobile with no web surface): there is nothing for a URL-scoped scanner to watch. Skip scanner 1, keep scanner 2 if the product has any recorded web sessions at all, and record the reason. Skipping both on a pure backend project is a correct outcome.
-   - **Then check scanner 2 against it.** `$rageclick` sessions inside the flow you just scoped would be matched by both scanners. That's the overlap you were warned about above — it's small, because rage-click sessions are a narrow slice, and it's acceptable at these defaults. What is *not* acceptable is widening scanner 2 to URLs that scanner 1 already owns.
+   - **Then make scanner 1 disjoint from scanner 2.** A `$rageclick` session inside the flow you just scoped would otherwise be matched by both scanners — exactly the self-corroboration case this step's "why the queries must not overlap" section warns against, so don't accept it as a small acceptable overlap. Add an explicit exclusion to scanner 1's `RecordingsQuery` so it skips sessions carrying scanner 2's `$rageclick` event (consult `creating-replay-vision-scanners` — loaded in step 2 below — for the negative/`is_not`-style event filter syntax it supports), keeping scanner 2's own `$rageclick` matching, URL scope, and sampling rate untouched. What is *not* acceptable is widening scanner 2 to URLs that scanner 1 already owns — the fix here is narrowing scanner 1, never widening scanner 2.
 
    > **Never gate the bug scanners on `$exception`.** That narrows them to sessions that already threw a JS error — exactly what error tracking already catches — and blinds them to the thing vision is uniquely good at: silent breakage with no exception at all (blank screen, wrong data, dead button, broken layout). Scope by *where* it matters plus `sampling_rate`. Never by an outcome event. `$rageclick` in scanner 2 is the one exception, and only because there the friction **is** the signal, not a proxy for it.
 
@@ -102,6 +102,9 @@ The product visibly breaking, on the flow where breaking costs the most. This is
   "query": {
     // AGENT FILLS: this product's key completion flow + its immediate
     // predecessors, read out of the repo. Not a generic "key pages" list.
+    // Also exclude sessions carrying scanner 2's $rageclick event, so the
+    // two queries stay disjoint — see step 3's "make scanner 1 disjoint"
+    // note for the filter syntax.
     "kind": "RecordingsQuery",
     "properties": [
       {

@@ -10,7 +10,7 @@ This is distinct from step 4: here you turn the *products* on; step 4 wires up t
 
 Emit:
 
-```
+```text
 [STATUS] Enabling products
 ```
 
@@ -22,7 +22,7 @@ Reach `products-enable` through the PostHog `exec` tool (`info products-enable`,
 
 1. Call `products-enable` to turn the products on:
 
-```
+```json
 { "products": ["session_replay", "error_tracking", "conversations"] }
 ```
 

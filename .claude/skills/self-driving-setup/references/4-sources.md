@@ -8,7 +8,7 @@ Switch on the PostHog-native sources (the inbox's "Responders") that match what 
 
 Emit:
 
-```
+```text
 [STATUS] Enabling signal sources
 ```
 

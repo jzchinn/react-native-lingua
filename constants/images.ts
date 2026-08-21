@@ -18,4 +18,13 @@ export const images = {
   aiTeacherAvatar: {
     uri: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop&crop=faces",
   },
+  // Placeholder unit hero illustrations (Picsum, keyed by unit id) — no local
+  // artwork exists yet for each unit's lesson-list header.
+  unitHero: {
+    "es-u1": { uri: "https://picsum.photos/seed/es-u1-lesson/800/600" },
+    "es-u2": { uri: "https://picsum.photos/seed/es-u2-lesson/800/600" },
+    "es-u3": { uri: "https://picsum.photos/seed/es-u3-lesson/800/600" },
+    "fr-u1": { uri: "https://picsum.photos/seed/fr-u1-lesson/800/600" },
+    "ja-u1": { uri: "https://picsum.photos/seed/ja-u1-lesson/800/600" },
+  } as Record<string, { uri: string }>,
 };

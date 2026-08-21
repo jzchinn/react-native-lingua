@@ -42,3 +42,8 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Claude Code skill installs (local tooling, not app code)
+/.claude/skills/
+/.agents/skills/
+/skills-lock.json

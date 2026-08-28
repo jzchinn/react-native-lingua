@@ -6,8 +6,10 @@ import * as SplashScreen from "expo-splash-screen";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useRef } from "react";
 import { PostHogProvider } from "posthog-react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { PostHogIdentityBridge } from "@/components/PostHogIdentityBridge";
+import { StreamVideoProvider } from "@/components/StreamVideoProvider";
 import { posthog } from "../src/config/posthog";
 
 import "../global.css";
@@ -64,9 +66,13 @@ export default function RootLayout() {
       >
       <ClerkProvider publishableKey={publishableKey!} tokenCache={tokenCache}>
         <PostHogIdentityBridge>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          </Stack>
+          <SafeAreaProvider>
+            <StreamVideoProvider>
+              <Stack>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              </Stack>
+            </StreamVideoProvider>
+          </SafeAreaProvider>
         </PostHogIdentityBridge>
       </ClerkProvider>
     </PostHogProvider>

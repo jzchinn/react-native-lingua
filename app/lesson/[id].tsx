@@ -1,18 +1,33 @@
-import { useUser } from "@clerk/expo";
+import { useAuth, useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  Call,
+  CallingState,
+  StreamCall,
+  useCall,
+  useCallStateHooks,
+  useStreamVideoClient,
+} from "@stream-io/video-react-native-sdk";
 
+import { useStreamVideoConnection } from "@/components/StreamVideoProvider";
 import { images } from "@/constants/images";
+import { AI_TEACHER_USER_ID } from "@/constants/vision-agent";
 import { getLanguageById } from "@/data/languages";
 import { getLessonById } from "@/data/lessons";
 import { getUnitById } from "@/data/units";
+import { createLessonCall } from "@/lib/stream-client";
+import { startAgentSession, stopAgentSession } from "@/lib/vision-agent-client";
+import { colors } from "@/theme";
+import type { Language, Lesson } from "@/types/learning";
 
-type SessionStatus = "connecting" | "active" | "ended";
+type ScreenStatus = "loading" | "connecting" | "joined" | "error" | "ended";
+type AgentStatus = "idle" | "connecting" | "connected" | "failed";
 
 const FEEDBACK = [
   { label: "Speaking", value: "Excellent", color: "#21c16b" },
@@ -30,33 +45,69 @@ function formatTimer(totalSeconds: number) {
 export default function AudioLesson() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { user } = useUser();
+  const { getToken } = useAuth();
+  const streamClient = useStreamVideoClient();
+  const streamConnection = useStreamVideoConnection();
+  const isConnectionError = streamConnection.status === "error";
 
   const lesson = getLessonById(id);
   const unit = lesson ? getUnitById(lesson.unitId) : undefined;
   const language = lesson ? getLanguageById(lesson.languageId) : undefined;
 
-  const [sessionStatus, setSessionStatus] = useState<SessionStatus>("connecting");
+  const [call, setCall] = useState<Call>();
+  const [status, setStatus] = useState<ScreenStatus>("loading");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [isCameraOn, setIsCameraOn] = useState(true);
-  const [isMicOn, setIsMicOn] = useState(true);
-  const [isSubtitlesOn, setIsSubtitlesOn] = useState(true);
-  const [isPinned, setIsPinned] = useState(false);
-  const [lineIndex, setLineIndex] = useState(0);
+  const [retryCount, setRetryCount] = useState(0);
+
+  // Creates the audio-only call for this lesson (via the Expo API route,
+  // which also mints the caller's Stream token) and joins it. Guards the
+  // cleanup leave() so React 18 strict-mode double-effects and an explicit
+  // hangup + unmount don't both try to leave the same call.
+  useEffect(() => {
+    if (!streamClient || !lesson) return;
+
+    let cancelled = false;
+    let activeCall: Call | undefined;
+
+    (async () => {
+      setStatus("connecting");
+      try {
+        const { callId, callType } = await createLessonCall(getToken, lesson.id);
+        if (cancelled) return;
+        activeCall = streamClient.call(callType, callId, { reuseInstance: true });
+        setCall(activeCall);
+        await activeCall.camera.disable();
+        await activeCall.microphone.enable();
+        await activeCall.join();
+        if (cancelled) return;
+        setStatus("joined");
+      } catch (err) {
+        console.error("Failed to join lesson call", err);
+        if (!cancelled) setStatus("error");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (activeCall && activeCall.state.callingState !== CallingState.LEFT) {
+        activeCall.leave().catch((err) => console.error(err));
+      }
+    };
+    // `getToken` is not referentially stable across renders in @clerk/expo -
+    // listing it here re-ran this effect (and re-joined the call) on every
+    // render. It always fetches the live token regardless of when this
+    // closure was created, so it's safe to call without depending on it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streamClient, lesson, retryCount]);
 
   useEffect(() => {
-    const connectTimeout = setTimeout(() => setSessionStatus("active"), 1000);
-    return () => clearTimeout(connectTimeout);
-  }, []);
-
-  useEffect(() => {
-    if (sessionStatus !== "active") return;
+    if (status !== "joined") return;
     const interval = setInterval(() => setElapsedSeconds((seconds) => seconds + 1), 1000);
     return () => clearInterval(interval);
-  }, [sessionStatus]);
+  }, [status]);
 
   useEffect(() => {
-    if (sessionStatus !== "ended") return;
+    if (status !== "ended") return;
     const timeout = setTimeout(() => {
       if (router.canGoBack()) {
         router.back();
@@ -65,7 +116,22 @@ export default function AudioLesson() {
       }
     }, 900);
     return () => clearTimeout(timeout);
-  }, [sessionStatus, router]);
+  }, [status, router]);
+
+  function handleEndCall() {
+    if (status === "ended") return;
+    setStatus("ended");
+    if (call && call.state.callingState !== CallingState.LEFT) {
+      call.leave().catch((err) => console.error(err));
+    }
+  }
+
+  function handleRetry() {
+    setCall(undefined);
+    setElapsedSeconds(0);
+    setStatus("loading");
+    setRetryCount((count) => count + 1);
+  }
 
   if (!lesson || !unit || !language) {
     return (
@@ -81,6 +147,148 @@ export default function AudioLesson() {
     );
   }
 
+  if (status === "error" || isConnectionError) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }} edges={["top"]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View className="flex-1 items-center justify-center px-8">
+          <Ionicons name="cloud-offline-outline" size={40} color={colors.error} />
+          <Text className="h3 text-center mt-3">Can&apos;t connect</Text>
+          <Text className="body-md text-center text-text-secondary mt-1">
+            We couldn&apos;t reach your AI teacher. Check your connection and try again.
+          </Text>
+          <Pressable
+            // A connection-level failure (the Stream client itself never
+            // connected) needs the provider to retry, not the per-lesson
+            // call-join effect - that effect can't run at all without a
+            // connected client. Retrying the call-join effect here instead
+            // would silently no-op and leave the user stuck.
+            onPress={isConnectionError ? streamConnection.retry : handleRetry}
+            className="mt-5 bg-lingua-purple rounded-full px-6 py-3"
+            accessibilityRole="button"
+          >
+            <Text className="body-md font-poppins-semibold text-white">Try again</Text>
+          </Pressable>
+          <Pressable onPress={() => router.back()} className="mt-3">
+            <Text className="body-md font-poppins-semibold text-lingua-purple">Go back</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!call) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }} edges={["top"]}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View className="flex-1 items-center justify-center px-8">
+          <ActivityIndicator size="large" color={colors.linguaPurple} />
+          <Text className="body-md text-text-secondary mt-3">Preparing your lesson…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <StreamCall call={call}>
+      <AudioLessonContent
+        lesson={lesson}
+        language={language}
+        status={status}
+        elapsedSeconds={elapsedSeconds}
+        onEndCall={handleEndCall}
+        onGoBack={() => router.back()}
+      />
+    </StreamCall>
+  );
+}
+
+function AudioLessonContent({
+  lesson,
+  language,
+  status,
+  elapsedSeconds,
+  onEndCall,
+  onGoBack,
+}: {
+  lesson: Lesson;
+  language: Language;
+  status: ScreenStatus;
+  elapsedSeconds: number;
+  onEndCall: () => void;
+  onGoBack: () => void;
+}) {
+  const { user } = useUser();
+  const { getToken } = useAuth();
+  const call = useCall();
+  const { useMicrophoneState, useRemoteParticipants } = useCallStateHooks();
+  const { status: micStatus } = useMicrophoneState();
+  const isMicOn = micStatus === "enabled";
+  const remoteParticipants = useRemoteParticipants();
+
+  const [isCameraOn, setIsCameraOn] = useState(true);
+  const [isSubtitlesOn, setIsSubtitlesOn] = useState(true);
+  const [isPinned, setIsPinned] = useState(false);
+  const [lineIndex, setLineIndex] = useState(0);
+  const [agentStatus, setAgentStatus] = useState<AgentStatus>("idle");
+
+  const agentSessionIdRef = useRef<string | undefined>(undefined);
+  const agentStoppedRef = useRef(false);
+
+  function stopAgent() {
+    if (agentStoppedRef.current) return;
+    agentStoppedRef.current = true;
+    const sessionId = agentSessionIdRef.current;
+    if (!sessionId) return;
+    stopAgentSession(getToken, lesson.id, sessionId).catch((err) =>
+      console.error("Failed to stop AI teacher", err),
+    );
+  }
+
+  // Starts the AI teacher as soon as this lesson call is on screen, and
+  // makes sure its session is closed both when the user ends the call
+  // (handleEndCall below calls stopAgent directly) and when this screen
+  // unmounts (this cleanup). Guarded by refs, not state, so a fast
+  // end-call-then-unmount only sends one stop request, and a stop
+  // requested before start() resolves still reaches the session that was
+  // about to be created.
+  useEffect(() => {
+    let cancelled = false;
+    agentStoppedRef.current = false;
+    setAgentStatus("connecting");
+
+    startAgentSession(getToken, lesson.id)
+      .then(({ sessionId }) => {
+        if (cancelled || agentStoppedRef.current) {
+          stopAgentSession(getToken, lesson.id, sessionId).catch((err) => console.error(err));
+          return;
+        }
+        agentSessionIdRef.current = sessionId;
+      })
+      .catch((err) => {
+        console.error("Failed to start AI teacher", err);
+        if (!cancelled) setAgentStatus("failed");
+      });
+
+    return () => {
+      cancelled = true;
+      stopAgent();
+    };
+    // `getToken` is not referentially stable across renders in @clerk/expo -
+    // see the identical note on the call-join effect in AudioLesson above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lesson.id]);
+
+  // The AI teacher is "connected" once it actually shows up as a call
+  // participant, not just once our start request was accepted - joining the
+  // Stream call happens asynchronously after that.
+  useEffect(() => {
+    if (agentStatus === "failed") return;
+    if (remoteParticipants.some((participant) => participant.userId === AI_TEACHER_USER_ID)) {
+      setAgentStatus("connected");
+    }
+  }, [remoteParticipants, agentStatus]);
+
   const lines = [
     { text: lesson.aiTeacherPrompt.greeting, translation: lesson.aiTeacherPrompt.greetingTranslation },
     ...lesson.phrases.map((phrase) => ({ text: phrase.phrase, translation: phrase.translation })),
@@ -88,17 +296,33 @@ export default function AudioLesson() {
   const currentLine = lines[lineIndex % lines.length];
 
   const statusLabel =
-    sessionStatus === "connecting"
-      ? "Connecting…"
-      : sessionStatus === "ended"
-        ? "Call ended"
-        : "Online";
+    status === "ended"
+      ? "Call ended"
+      : agentStatus === "connected"
+        ? "Online"
+        : agentStatus === "failed"
+          ? "Teacher unavailable"
+          : "Connecting…";
   const statusDotColor =
-    sessionStatus === "active" ? "#21c16b" : sessionStatus === "ended" ? "#ff4d4f" : "#6b7280";
+    status === "ended"
+      ? "#ff4d4f"
+      : agentStatus === "connected"
+        ? "#21c16b"
+        : agentStatus === "failed"
+          ? colors.error
+          : "#6b7280";
 
-  function handleEndCall() {
-    if (sessionStatus === "ended") return;
-    setSessionStatus("ended");
+  async function toggleMic() {
+    try {
+      await call?.microphone.toggle();
+    } catch (err) {
+      console.error("Failed to toggle microphone", err);
+    }
+  }
+
+  function handleEndCallPress() {
+    stopAgent();
+    onEndCall();
   }
 
   return (
@@ -107,7 +331,7 @@ export default function AudioLesson() {
       {/* Header */}
       <View className="flex-row items-center px-4 pt-2 pb-3">
         <Pressable
-          onPress={() => router.back()}
+          onPress={onGoBack}
           className="w-9 h-9 items-center justify-center"
           accessibilityRole="button"
           accessibilityLabel="Go back"
@@ -200,6 +424,12 @@ export default function AudioLesson() {
                 <Ionicons name="videocam-off" size={22} color="white" />
               </View>
             )}
+            <View className="absolute bottom-0 left-0 right-0 bg-black/40 px-2 py-1">
+              <Text className="caption text-white" numberOfLines={1}>
+                {user?.firstName ?? user?.username ?? "You"}
+                {!isMicOn ? " · Muted" : ""}
+              </Text>
+            </View>
           </View>
 
           {/* Mascot teacher */}
@@ -255,7 +485,7 @@ export default function AudioLesson() {
 
             <View className="flex-1 items-center">
               <Pressable
-                onPress={() => setIsMicOn((prev) => !prev)}
+                onPress={toggleMic}
                 className={`w-14 h-14 rounded-full items-center justify-center ${
                   isMicOn ? "bg-white" : "bg-text-primary"
                 }`}
@@ -291,7 +521,7 @@ export default function AudioLesson() {
 
             <View className="flex-1 items-center">
               <Pressable
-                onPress={handleEndCall}
+                onPress={handleEndCallPress}
                 className="w-14 h-14 rounded-full items-center justify-center bg-error"
                 accessibilityRole="button"
                 accessibilityLabel="End call"

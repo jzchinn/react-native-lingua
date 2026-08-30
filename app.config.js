@@ -10,8 +10,10 @@ export default {
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
+      "bundleIdentifier": "com.anonymous.duolingo-clone-b",
     },
     android: {
+      package: "com.anonymous.duolingocloneb",
       adaptiveIcon: {
         backgroundColor: "#E6F4FE",
         foregroundImage: "./assets/images/android-icon-foreground.png",
@@ -20,6 +22,10 @@ export default {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
+      permissions: [
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.BLUETOOTH_CONNECT",
+      ],
     },
     web: {
       output: "static",
@@ -41,6 +47,18 @@ export default {
       ],
       "@clerk/expo",
       "expo-secure-store",
+      "@stream-io/video-react-native-sdk",
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          cameraPermission: "$(PRODUCT_NAME) uses your camera for video-enabled lessons",
+          microphonePermission: "$(PRODUCT_NAME) uses your microphone so you can speak during audio lessons",
+        },
+      ],
+      [
+        "expo-build-properties",
+        { android: { minSdkVersion: 24 } },
+      ],
     ],
     experiments: {
       typedRoutes: true,

@@ -46,6 +46,24 @@ export async function POST(request: Request) {
 
   try {
     const stream = getStreamServerClient();
+
+    // getOrCreate rejects the whole request if a member user_id doesn't
+    // already exist in Stream ("users ... don't exist: [...]. Please create
+    // users before referencing them in a call"). The agent normally
+    // provisions itself (and its own custom metadata, e.g. `is_agent`) the
+    // first time it authenticates, but that may not have happened yet -
+    // e.g. a fresh Stream app, or this being its very first call. A partial
+    // update merges into whatever the agent has already set instead of
+    // wiping it out via a full upsert; it only fails when the user doesn't
+    // exist yet, in which case the fallback upsert creates it.
+    try {
+      await stream.updateUsersPartial({
+        users: [{ id: AI_TEACHER_USER_ID, set: { name: "AI Teacher" } }],
+      });
+    } catch {
+      await stream.upsertUsers([{ id: AI_TEACHER_USER_ID, name: "AI Teacher" }]);
+    }
+
     const call = stream.video.call(LESSON_CALL_TYPE, callId);
     await call.getOrCreate({
       data: {

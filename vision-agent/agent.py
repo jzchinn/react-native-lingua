@@ -135,11 +135,23 @@ def _require_shared_secret(authorization: str | None = Header(default=None)) -> 
     """FastAPI dependency used for every session-management endpoint in
     `serve` mode. Requires a `VISION_AGENT_SHARED_SECRET` bearer token from
     the Expo backend (see lib/vision-agent-server.ts) so nobody else can
-    start or stop AI teacher sessions. Left open only if the secret isn't
-    configured, e.g. local development."""
+    start or stop AI teacher sessions.
+
+    Fails closed: a missing `VISION_AGENT_SHARED_SECRET` rejects every
+    request rather than letting them through unauthenticated. The only way
+    to run without a secret is to opt in explicitly with
+    `VISION_AGENT_INSECURE_DEV=true`, for local development."""
     expected = os.environ.get("VISION_AGENT_SHARED_SECRET")
     if not expected:
-        return
+        if os.environ.get("VISION_AGENT_INSECURE_DEV") == "true":
+            return
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=(
+                "VISION_AGENT_SHARED_SECRET is not set. Set it (see .env.example), "
+                "or set VISION_AGENT_INSECURE_DEV=true for local development only."
+            ),
+        )
     provided = authorization.removeprefix("Bearer ") if authorization else None
     if provided != expected:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")

@@ -14,7 +14,13 @@ function getAgentServerUrl(): string {
 
 function getAuthHeaders(): HeadersInit {
   const secret = process.env.VISION_AGENT_SHARED_SECRET;
-  return secret ? { Authorization: `Bearer ${secret}` } : {};
+  if (!secret) {
+    // Fail before the request goes out, not by silently sending it
+    // unauthenticated - the vision-agent server fails closed on its side
+    // too (see `_require_shared_secret` in vision-agent/agent.py).
+    throw new Error("VISION_AGENT_SHARED_SECRET must be set");
+  }
+  return { Authorization: `Bearer ${secret}` };
 }
 
 export interface AgentJoinResult {

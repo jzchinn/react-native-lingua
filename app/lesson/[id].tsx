@@ -15,6 +15,7 @@ import {
   useStreamVideoClient,
 } from "@stream-io/video-react-native-sdk";
 
+import { useStreamVideoConnection } from "@/components/StreamVideoProvider";
 import { images } from "@/constants/images";
 import { AI_TEACHER_USER_ID } from "@/constants/vision-agent";
 import { getLanguageById } from "@/data/languages";
@@ -46,6 +47,8 @@ export default function AudioLesson() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getToken } = useAuth();
   const streamClient = useStreamVideoClient();
+  const streamConnection = useStreamVideoConnection();
+  const isConnectionError = streamConnection.status === "error";
 
   const lesson = getLessonById(id);
   const unit = lesson ? getUnitById(lesson.unitId) : undefined;
@@ -144,7 +147,7 @@ export default function AudioLesson() {
     );
   }
 
-  if (status === "error") {
+  if (status === "error" || isConnectionError) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: "#ffffff" }} edges={["top"]}>
         <Stack.Screen options={{ headerShown: false }} />
@@ -155,7 +158,12 @@ export default function AudioLesson() {
             We couldn&apos;t reach your AI teacher. Check your connection and try again.
           </Text>
           <Pressable
-            onPress={handleRetry}
+            // A connection-level failure (the Stream client itself never
+            // connected) needs the provider to retry, not the per-lesson
+            // call-join effect - that effect can't run at all without a
+            // connected client. Retrying the call-join effect here instead
+            // would silently no-op and leave the user stuck.
+            onPress={isConnectionError ? streamConnection.retry : handleRetry}
             className="mt-5 bg-lingua-purple rounded-full px-6 py-3"
             accessibilityRole="button"
           >
